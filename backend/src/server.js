@@ -101,6 +101,32 @@ app.get('/api/repos', (req, res) => {
   res.json(listRepos());
 });
 
+// Cross-repository comparison: repository metrics for several repos under the
+// same commit-set filter, so their histories can be lined up side by side.
+app.get('/api/compare', (req, res) => {
+  const ids = String(req.query.ids || '')
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0)
+    .slice(0, 25);
+  const filter = parseFilter(req.query);
+  const out = [];
+  for (const id of ids) {
+    const repo = getRepo(id);
+    if (!repo || repo.status !== 'ready') continue;
+    const s = summary(id, filter);
+    out.push({
+      id,
+      name: repo.name,
+      head: repo.head,
+      branch: repo.branch,
+      stats: s.stats,
+      totalCommits: s.totalCommits,
+    });
+  }
+  res.json({ repos: out, filtered: Boolean(filter) });
+});
+
 app.post('/api/repos/clone', (req, res, next) => {
   try {
     const url = String(req.body?.url || '').trim();

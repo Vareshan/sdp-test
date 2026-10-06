@@ -86,6 +86,14 @@ on the tab.
 State (SQLite database + cloned repositories) is stored under `./data` and
 persists across restarts.
 
+### Comparing repositories
+
+The **Compare repositories** view (sidebar button) lines up repository
+(root) metrics for one or more repositories side by side — commits, authors,
+added/removed lines, growth, churn and modifications — with a shared
+commit-set window applied to every repository, a table sorted by churn and an
+Added/Removed/Churn bar chart.
+
 ## Metrics
 
 Metric correctness is delegated to Git's own diff engine. History is read with:
@@ -105,7 +113,8 @@ For every file, directory and repository root:
 - **Growth** `δ = l+ − l−`; **Churn** `λ = l+ + l−`
 - **Modifications** `n`: number of commits with `λ > 0`
 - **Modification frequency** `η = n / |H|` and **churn rate** `ρ = λ / |H|`,
-  where `H` is the set of all non-merge commits
+  where `H` is the active commit set (all non-merge commits when no filter is
+  applied)
 
 For every author: commits, modifications, added/removed/churn and
 **ownership** `ω = λ_author / λ_total` (share of the repository's total churn).

@@ -9,6 +9,7 @@ import FilesTab from './components/FilesTab.jsx';
 import CommitsTab from './components/CommitsTab.jsx';
 import AuthorsTab from './components/AuthorsTab.jsx';
 import ObjectDrawer from './components/ObjectDrawer.jsx';
+import CompareView from './components/CompareView.jsx';
 
 const TABS = [
   ['overview', 'Overview'],
@@ -28,6 +29,7 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false);
   const [object, setObject] = useState(null);
   const [filter, setFilter] = useState(EMPTY_FILTER);
+  const [mode, setMode] = useState('analysis');
 
   const selectedIdRef = useRef(null);
   selectedIdRef.current = selectedId;
@@ -128,12 +130,19 @@ export default function App() {
       <Sidebar
         repos={repos}
         selectedId={selectedId}
-        onSelect={setSelectedId}
+        onSelect={(id) => {
+          setMode('analysis');
+          setSelectedId(id);
+        }}
         onAdd={() => setShowAdd(true)}
         onDelete={handleDelete}
+        onCompare={() => setMode(mode === 'compare' ? 'analysis' : 'compare')}
+        compareActive={mode === 'compare'}
       />
       <main className="main">
-        {!selectedRepo ? (
+        {mode === 'compare' ? (
+          <CompareView repos={repos} refreshKey={refreshKey} />
+        ) : !selectedRepo ? (
           <div className="empty">
             Add a repository to begin: clone a remote URL or upload a zip file containing .git.
           </div>
@@ -196,7 +205,7 @@ export default function App() {
           </>
         )}
       </main>
-      {object && ready && (
+      {object && ready && mode === 'analysis' && (
         <ObjectDrawer repoId={selectedId} object={object} qs={filterQS} onClose={() => setObject(null)} />
       )}
       {showAdd && (
@@ -204,6 +213,7 @@ export default function App() {
           onClose={() => setShowAdd(false)}
           onCreated={(id) => {
             setShowAdd(false);
+            setMode('analysis');
             setSelectedId(id);
             setTab('overview');
             setObject(null);

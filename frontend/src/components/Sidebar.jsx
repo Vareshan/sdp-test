@@ -6,7 +6,7 @@ function statusInfo(r) {
   return { cls: 'busy', text: `${r.status} ${Math.round((r.progress || 0) * 100)}%` };
 }
 
-export default function Sidebar({ repos, selectedId, onSelect, onAdd, onDelete }) {
+export default function Sidebar({ repos, selectedId, onSelect, onAdd, onDelete, onCompare, compareActive }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -15,6 +15,13 @@ export default function Sidebar({ repos, selectedId, onSelect, onAdd, onDelete }
       </div>
       <button className="btn btn-primary add-btn" onClick={onAdd}>
         + Add repository
+      </button>
+      <button
+        className={`btn compare-btn${compareActive ? ' active' : ''}`}
+        onClick={onCompare}
+        title="Line up repository metrics side by side"
+      >
+        Compare repositories
       </button>
       <div className="repo-list">
         {repos.length === 0 && <div className="sidebar-empty">No repositories yet.</div>}
