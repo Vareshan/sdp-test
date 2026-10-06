@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { api, formatInt } from '../api.js';
+import { api, formatInt, withQuery } from '../api.js';
 
-export default function FilesTab({ repoId, refreshKey, onOpenObject }) {
+export default function FilesTab({ repoId, refreshKey, qs, onOpenObject }) {
   const [dir, setDir] = useState('');
   const [children, setChildren] = useState(null);
   const [error, setError] = useState(null);
@@ -15,13 +15,13 @@ export default function FilesTab({ repoId, refreshKey, onOpenObject }) {
     setChildren(null);
     setError(null);
     api
-      .get(`/api/repos/${repoId}/tree?dir=${encodeURIComponent(dir)}`)
+      .get(withQuery(`/api/repos/${repoId}/tree?dir=${encodeURIComponent(dir)}`, qs))
       .then((d) => alive && setChildren(d.children))
       .catch((e) => alive && setError(e.message));
     return () => {
       alive = false;
     };
-  }, [repoId, refreshKey, dir]);
+  }, [repoId, refreshKey, dir, qs]);
 
   const parts = dir ? dir.split('/') : [];
 
@@ -94,7 +94,7 @@ export default function FilesTab({ repoId, refreshKey, onOpenObject }) {
       )}
       <div className="hint">
         Directories navigate on click; files open a detail panel with per-commit metrics and author
-        ownership. Numbers are computed over the whole history.
+        ownership. Numbers are computed over {qs ? 'the filtered commit set' : 'the whole history'}.
       </div>
     </>
   );

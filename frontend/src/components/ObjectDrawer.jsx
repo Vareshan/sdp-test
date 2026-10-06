@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { api, formatInt, formatPercent } from '../api.js';
+import { api, formatInt, formatPercent, withQuery } from '../api.js';
 
-export default function ObjectDrawer({ repoId, object, onClose }) {
+export default function ObjectDrawer({ repoId, object, qs, onClose }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
@@ -11,13 +11,18 @@ export default function ObjectDrawer({ repoId, object, onClose }) {
     setData(null);
     setError(null);
     api
-      .get(`/api/repos/${repoId}/object?path=${encodeURIComponent(object.path)}&type=${object.type}`)
+      .get(
+        withQuery(
+          `/api/repos/${repoId}/object?path=${encodeURIComponent(object.path)}&type=${object.type}`,
+          qs
+        )
+      )
       .then((d) => alive && setData(d))
       .catch((e) => alive && setError(e.message));
     return () => {
       alive = false;
     };
-  }, [repoId, object.path, object.type]);
+  }, [repoId, object.path, object.type, qs]);
 
   return (
     <aside className="drawer">

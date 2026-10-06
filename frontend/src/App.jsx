@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api.js';
 import Sidebar from './components/Sidebar.jsx';
 import AddRepoModal from './components/AddRepoModal.jsx';
 import StatusPanel from './components/StatusPanel.jsx';
+import FilterBar from './components/FilterBar.jsx';
 import Overview from './components/Overview.jsx';
 import FilesTab from './components/FilesTab.jsx';
 import CommitsTab from './components/CommitsTab.jsx';
@@ -16,6 +17,8 @@ const TABS = [
   ['authors', 'Authors'],
 ];
 
+const EMPTY_FILTER = { from: null, to: null, authors: [], commits: [] };
+
 export default function App() {
   const [repos, setRepos] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -24,6 +27,7 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAdd, setShowAdd] = useState(false);
   const [object, setObject] = useState(null);
+  const [filter, setFilter] = useState(EMPTY_FILTER);
 
   const selectedIdRef = useRef(null);
   selectedIdRef.current = selectedId;
@@ -88,10 +92,21 @@ export default function App() {
     };
   }, [selectedId]);
 
-  // Detach the object drawer when switching repositories.
+  // Detach the object drawer and reset the commit-set filter when switching repositories.
   useEffect(() => {
     setObject(null);
+    setFilter(EMPTY_FILTER);
   }, [selectedId]);
+
+  // Filter -> query string shared by every metrics fetch.
+  const filterQS = useMemo(() => {
+    const p = new URLSearchParams();
+    if (filter.from) p.set('from', String(filter.from));
+    if (filter.to) p.set('to', String(filter.to));
+    if (filter.authors.length) p.set('authors', filter.authors.join(','));
+    if (filter.commits.length) p.set('commits', filter.commits.join(','));
+    return p.toString();
+  }, [filter]);
 
   const selectedRepo = repos.find((r) => r.id === selectedId) || null;
   const ready = meta?.status === 'ready';
@@ -128,7 +143,7 @@ export default function App() {
               <h1 className="main-title">{selectedRepo.name}</h1>
               {ready && meta.head && (
                 <span className="head-hash">
-                  HEAD {meta.head.slice(0, 10)}
+                  commit {meta.head.slice(0, 10)}
                   {meta.branch && meta.branch !== 'HEAD' ? ` (${meta.branch})` : ''}
                 </span>
               )}
@@ -137,6 +152,13 @@ export default function App() {
               <StatusPanel meta={meta} />
             ) : (
               <>
+                <FilterBar
+                  repoId={selectedId}
+                  filter={filter}
+                  setFilter={setFilter}
+                  qs={filterQS}
+                  refreshKey={refreshKey}
+                />
                 <nav className="tabs">
                   {TABS.map(([id, label]) => (
                     <button
@@ -149,12 +171,25 @@ export default function App() {
                   ))}
                 </nav>
                 <div className="content">
-                  {tab === 'overview' && <Overview repoId={selectedId} refreshKey={refreshKey} />}
-                  {tab === 'files' && (
-                    <FilesTab repoId={selectedId} refreshKey={refreshKey} onOpenObject={setObject} />
+                  {tab === 'overview' && (
+                    <Overview repoId={selectedId} refreshKey={refreshKey} qs={filterQS} />
                   )}
-                  {tab === 'commits' && <CommitsTab repoId={selectedId} />}
-                  {tab === 'authors' && <AuthorsTab repoId={selectedId} refreshKey={refreshKey} />}
+                  {tab === 'files' && (
+                    <FilesTab repoId={selectedId} refreshKey={refreshKey} qs={filterQS} onOpenObject={setObject} />
+                  )}
+                  {tab === 'commits' && (
+                    <CommitsTab repoId={selectedId} qs={filterQS} filter={filter} setFilter={setFilter} />
+                  )}
+                  {tab === 'authors' && (
+                    <AuthorsTab
+                      repoId={selectedId}
+                      refreshKey={refreshKey}
+                      qs={filterQS}
+                      filter={filter}
+                      setFilter={setFilter}
+                      onChanged={() => setRefreshKey((k) => k + 1)}
+                    />
+                  )}
                 </div>
               </>
             )}
@@ -162,7 +197,7 @@ export default function App() {
         )}
       </main>
       {object && ready && (
-        <ObjectDrawer repoId={selectedId} object={object} onClose={() => setObject(null)} />
+        <ObjectDrawer repoId={selectedId} object={object} qs={filterQS} onClose={() => setObject(null)} />
       )}
       {showAdd && (
         <AddRepoModal

@@ -87,4 +87,13 @@ CREATE TABLE IF NOT EXISTS authors (
   removed INTEGER NOT NULL,
   PRIMARY KEY (repo_id, key)
 );
+
+-- Manual author merges: commits authored under source_key are attributed to
+-- target_key (applied at merge time by rewriting commits + authors).
+CREATE TABLE IF NOT EXISTS author_merges (
+  repo_id INTEGER NOT NULL,
+  source_key TEXT NOT NULL,
+  target_key TEXT NOT NULL,
+  PRIMARY KEY (repo_id, source_key)
+);
 `);

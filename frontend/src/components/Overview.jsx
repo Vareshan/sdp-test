@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { api, formatInt, formatPercent } from '../api.js';
+import { api, formatInt, formatPercent, withQuery } from '../api.js';
 
 function compact(n) {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -21,7 +21,7 @@ function shortPath(p) {
   return p.length > 30 ? `…${p.slice(-29)}` : p;
 }
 
-export default function Overview({ repoId, refreshKey }) {
+export default function Overview({ repoId, refreshKey, qs }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
@@ -30,18 +30,19 @@ export default function Overview({ repoId, refreshKey }) {
     setData(null);
     setError(null);
     api
-      .get(`/api/repos/${repoId}/summary`)
+      .get(withQuery(`/api/repos/${repoId}/summary`, qs))
       .then((d) => alive && setData(d))
       .catch((e) => alive && setError(e.message));
     return () => {
       alive = false;
     };
-  }, [repoId, refreshKey]);
+  }, [repoId, refreshKey, qs]);
 
   if (error) return <div className="error-text">{error}</div>;
   if (!data) return <div className="loading">Loading metrics...</div>;
 
   const s = data.stats;
+  const filtered = data.filtered;
 
   return (
     <>
@@ -49,6 +50,7 @@ export default function Overview({ repoId, refreshKey }) {
         <div className="card">
           <div className="card-label">Commits</div>
           <div className="card-value">{formatInt(s.commits)}</div>
+          {filtered && <div className="card-sub">of {formatInt(data.totalCommits)} in repository</div>}
         </div>
         <div className="card">
           <div className="card-label">Contributors</div>
@@ -87,7 +89,9 @@ export default function Overview({ repoId, refreshKey }) {
 
       <div className="chart-row">
         <div className="panel">
-          <div className="panel-title">Lines changed per week (whole repository)</div>
+          <div className="panel-title">
+            Lines changed per week ({filtered ? 'filtered commit set' : 'whole repository'})
+          </div>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={data.timeseries} barGap={0}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -101,7 +105,9 @@ export default function Overview({ repoId, refreshKey }) {
           </ResponsiveContainer>
         </div>
         <div className="panel">
-          <div className="panel-title">Top files by churn (whole history)</div>
+          <div className="panel-title">
+            Top files by churn ({filtered ? 'filtered commit set' : 'whole history'})
+          </div>
           {data.topFiles.length === 0 ? (
             <div className="hint">No line changes recorded.</div>
           ) : (

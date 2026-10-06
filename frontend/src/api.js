@@ -24,6 +24,12 @@ export const api = {
   del: (url) => fetch(url, { method: 'DELETE' }).then(handle),
 };
 
+// Appends an already-encoded query string to a URL (adds ? or & as needed).
+export function withQuery(url, qs) {
+  if (!qs) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}${qs}`;
+}
+
 export function formatInt(n) {
   return (n ?? 0).toLocaleString('en-US');
 }

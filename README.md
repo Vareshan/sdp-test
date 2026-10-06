@@ -49,7 +49,9 @@ Set `PORT` to change the port, e.g. `PORT=8080 npm start`.
 
 1. Click **+ Add repository** and either paste a clone URL (e.g.
    `https://github.com/DaveGamble/cJSON.git`) or upload a zip that contains a
-   `.git` folder (at the archive root or one level below it).
+   `.git` folder (at the archive root or one level below it). Optionally set a
+   **reference commit** (branch, tag or hash) to analyse the history up to that
+   revision — useful for reproducing metrics quoted at a specific commit.
 2. Ingestion runs in the background. The sidebar shows progress
    (queued → cloning/extracting → parsing → ready) or an error message.
 3. Explore the tabs: **Overview** (repository metrics + weekly line history +
@@ -57,6 +59,29 @@ Set `PORT` to change the port, e.g. `PORT=8080 npm start`.
    detail panel with per-commit history and author ownership), **Commits**
    (newest first, expandable to the files it changed) and **Authors**
    (per-author metrics and ownership share).
+
+### Commit-set filtering
+
+The filter bar above the tabs restricts every metric to a subset H of commits.
+Three dimensions can be combined (AND):
+
+- **Time** — presets (last 7/30 days, last year) or a custom From/Until range
+  on committer dates; the indicator shows "Commit set: N of M commits".
+- **Authors** — pick one or more identities from the searchable dropdown.
+- **Manual selection** — tick commits in the **Commits** tab and press
+  *Use selection as commit set*. The applied set shows as a chip in the filter
+  bar and clearable there.
+
+All views (Overview, Files, commit detail, Authors) recompute against the
+filtered set; modification frequency and churn rate use the filtered |H|.
+
+### Manual author merges
+
+If a repository has no `.mailmap` (or misses entries), open the **Authors** tab,
+tick two or more identities, click *Merge selected identities* and choose the
+canonical identity to keep. Commit authorship and per-author metrics are folded
+into the target identity everywhere in the dashboard; applied merges are listed
+on the tab.
 
 State (SQLite database + cloned repositories) is stored under `./data` and
 persists across restarts.
@@ -66,12 +91,13 @@ persists across restarts.
 Metric correctness is delegated to Git's own diff engine. History is read with:
 
 ```
-git log <HEAD> --no-merges --use-mailmap -M50% --numstat -z
+git log <ref> --no-merges --use-mailmap -M50% --numstat -z
 ```
 
 so that merge commits are excluded, renames are detected at the 50 % threshold
 and attributed to the new path, binary files contribute no line counts, and
-`.mailmap` identities are applied.
+`.mailmap` identities are applied. Without an explicit reference, `<ref>` is
+the repository's HEAD.
 
 For every file, directory and repository root:
 

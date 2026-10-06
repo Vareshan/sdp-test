@@ -5,6 +5,7 @@ export default function AddRepoModal({ onClose, onCreated }) {
   const [mode, setMode] = useState('clone');
   const [url, setUrl] = useState('');
   const [file, setFile] = useState(null);
+  const [ref, setRef] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -15,11 +16,12 @@ export default function AddRepoModal({ onClose, onCreated }) {
     try {
       let res;
       if (mode === 'clone') {
-        res = await api.post('/api/repos/clone', { url: url.trim() });
+        res = await api.post('/api/repos/clone', { url: url.trim(), ref: ref.trim() || undefined });
       } else {
         if (!file) throw new Error('Choose a .zip file first.');
         const fd = new FormData();
         fd.append('file', file);
+        if (ref.trim()) fd.append('ref', ref.trim());
         res = await api.upload('/api/repos/upload', fd);
       }
       onCreated(res.id);
@@ -77,6 +79,23 @@ export default function AddRepoModal({ onClose, onCreated }) {
               </div>
             </div>
           )}
+          <div className="form-row">
+            <label className="filter-label" htmlFor="ref-input">
+              Reference commit (optional)
+            </label>
+            <input
+              id="ref-input"
+              className="input"
+              type="text"
+              placeholder="branch, tag or commit hash - default: latest HEAD"
+              value={ref}
+              onChange={(e) => setRef(e.target.value)}
+            />
+            <div className="hint">
+              Analyse the history up to this revision. Provide the commit hash from the sample
+              metrics to reproduce those numbers exactly; leave empty for the full history.
+            </div>
+          </div>
           {error && <div className="error-text">{error}</div>}
           <div className="form-actions">
             <button type="button" className="btn" onClick={onClose} disabled={busy}>

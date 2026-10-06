@@ -5,8 +5,18 @@ import express from 'express';
 import multer from 'multer';
 
 import { db, TMP_DIR } from './db.js';
-import { enqueueIngest, recoverInterrupted, deleteRepoData } from './ingest.js';
-import { getRepo, listRepos, summary, tree, objectMetrics, commitsPage, commitFiles, authorsList } from './metrics.js';
+import { enqueueIngest, recoverInterrupted, deleteRepoData, mergeAuthors } from './ingest.js';
+import {
+  getRepo,
+  listRepos,
+  summary,
+  tree,
+  objectMetrics,
+  commitsPage,
+  commitFiles,
+  authorsList,
+  listMerges,
+} from './metrics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3001;
@@ -25,6 +35,35 @@ function repoNameFromUrl(url) {
   const cleaned = url.replace(/\/+$/, '');
   const last = cleaned.split(/[/:]/).pop() || 'repository';
   return last.replace(/\.git$/i, '') || 'repository';
+}
+
+// ---- commit-set filters (see metrics.js for the semantics) ----
+function parseTs(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+}
+
+function parseList(v, max) {
+  return String(v || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, max);
+}
+
+// Parses from/to/authors/commits query params into a filter object (or null).
+function parseFilter(query) {
+  const from = parseTs(query.from);
+  const to = parseTs(query.to);
+  const authors = parseList(query.authors, 500);
+  const commits = parseList(query.commits, 2000);
+  if (from == null && to == null && !authors.length && !commits.length) return null;
+  return {
+    from,
+    to,
+    authors: authors.length ? authors : null,
+    commits: commits.length ? commits : null,
+  };
 }
 
 function insertRepo(name, sourceType, source) {
@@ -69,7 +108,8 @@ app.post('/api/repos/clone', (req, res, next) => {
       return res.status(400).json({ error: 'Provide a valid clone URL (https://..., git@..., ssh:// or git://).' });
     }
     const id = insertRepo(repoNameFromUrl(url), 'clone', url);
-    enqueueIngest(id);
+    const ref = String(req.body?.ref || '').trim();
+    enqueueIngest(id, ref ? { ref } : {});
     res.status(202).json({ id });
   } catch (err) {
     next(err);
@@ -85,7 +125,8 @@ app.post('/api/repos/upload', upload.single('file'), (req, res, next) => {
     }
     const name = (req.file.originalname || 'repository.zip').replace(/\.zip$/i, '') || 'repository';
     const id = insertRepo(name, 'zip', req.file.originalname);
-    enqueueIngest(id, { zipPath: req.file.path });
+    const ref = String(req.body?.ref || '').trim();
+    enqueueIngest(id, { zipPath: req.file.path, ...(ref ? { ref } : {}) });
     res.status(202).json({ id });
   } catch (err) {
     next(err);
@@ -114,24 +155,25 @@ app.delete('/api/repos/:id', (req, res, next) => {
 });
 
 app.get('/api/repos/:id/summary', guard, (req, res) => {
-  res.json(summary(req.repo.id));
+  res.json(summary(req.repo.id, parseFilter(req.query)));
 });
 
 app.get('/api/repos/:id/tree', guard, (req, res) => {
   const dir = String(req.query.dir ?? '');
-  res.json({ dir, children: tree(req.repo.id, dir) });
+  res.json({ dir, children: tree(req.repo.id, dir, parseFilter(req.query)) });
 });
 
 app.get('/api/repos/:id/object', guard, (req, res) => {
   const objectPath = String(req.query.path ?? '');
   const type = req.query.type === 'dir' ? 'dir' : 'file';
-  res.json({ path: objectPath, type, ...objectMetrics(req.repo.id, objectPath, type) });
+  res.json({ path: objectPath, type, ...objectMetrics(req.repo.id, objectPath, type, parseFilter(req.query)) });
 });
 
 app.get('/api/repos/:id/commits', guard, (req, res) => {
   const offset = Math.max(0, Number(req.query.offset) || 0);
   const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
-  res.json(commitsPage(req.repo.id, offset, limit));
+  // The list ignores the manual commit list so it stays the selection surface.
+  res.json(commitsPage(req.repo.id, offset, limit, parseFilter(req.query)));
 });
 
 app.get('/api/repos/:id/commits/:hash/files', guard, (req, res) => {
@@ -148,7 +190,29 @@ app.get('/api/repos/:id/commits/:hash/files', guard, (req, res) => {
 });
 
 app.get('/api/repos/:id/authors', guard, (req, res) => {
-  res.json(authorsList(req.repo.id));
+  res.json(authorsList(req.repo.id, parseFilter(req.query)));
+});
+
+// ---- manual author merges ----
+app.get('/api/repos/:id/merges', guard, (req, res) => {
+  res.json(listMerges(req.repo.id));
+});
+
+app.post('/api/repos/:id/merges', guard, (req, res, next) => {
+  try {
+    const sourceKey = String(req.body?.source_key || '').trim();
+    const targetKey = String(req.body?.target_key || '').trim();
+    if (!sourceKey || !targetKey) {
+      return res.status(400).json({ error: 'Provide both source_key and target_key.' });
+    }
+    mergeAuthors(req.repo.id, sourceKey, targetKey);
+    res.json({ ok: true, authors: authorsList(req.repo.id), merges: listMerges(req.repo.id) });
+  } catch (err) {
+    if (/not found|identical|itself/.test(String(err?.message))) {
+      return res.status(400).json({ error: err.message });
+    }
+    next(err);
+  }
 });
 
 app.use('/api', (req, res) => {
