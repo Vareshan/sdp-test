@@ -13,7 +13,12 @@ for files, directories, repository roots, commit sets and authors.
 
 ## Quick start (development)
 
+Unless stated otherwise, every command in this README is run from the
+repository root — the folder containing `package.json` (the folder you cloned
+or extracted into). Change into it first:
+
 ```bash
+cd sdp-test       # wherever you cloned or extracted the repository
 npm install
 npm run dev
 ```
@@ -29,6 +34,8 @@ The two servers can also be run in separate terminals with
 `npm run dev:backend` and `npm run dev:frontend`.
 
 ## Production build (single port)
+
+From the same repository root:
 
 ```bash
 npm install
