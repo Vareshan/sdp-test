@@ -156,3 +156,10 @@ system one), compiles better-sqlite3 against the local Node headers and
 verifies the binding actually loads. It requires `make`, a C++ compiler and
 Python 3. If a prebuilt binary matches your Node.js, a plain `npm install`
 works and none of this is needed.
+
+Once it reports `better-sqlite3 rebuilt OK`, you can start the app as usual —
+the fix is a one-off and later runs are normal:
+
+```bash
+npm run dev
+```
