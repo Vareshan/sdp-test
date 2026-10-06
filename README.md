@@ -18,6 +18,10 @@ npm install
 npm run dev
 ```
 
+If `npm install` stops while building `better-sqlite3`, jump to
+[Troubleshooting](#troubleshooting) — a two-command fix covers the common
+Linux-distribution case.
+
 - Frontend (Vite dev server with hot reload): http://localhost:5173
 - Backend API: http://localhost:3001 — the frontend proxies `/api` to it
 
@@ -127,14 +131,28 @@ For every author: commits, modifications, added/removed/churn and
 
 ## Troubleshooting
 
-**better-sqlite3 fails to install or load.** Prebuilt binaries cover standard
-Node.js releases. If your Node.js build reports a non-standard
-`NODE_MODULE_VERSION` (some Linux distribution builds), run:
+**`npm install` fails while building `better-sqlite3`.** Typical output:
+
+```
+npm ERR! code 1
+npm ERR! path .../node_modules/better-sqlite3
+npm ERR! command sh -c prebuild-install || node-gyp rebuild --release
+npm ERR! prebuild-install warn install No prebuilt binaries found ...
+```
+
+This happens on Node.js builds with a non-standard `NODE_MODULE_VERSION`
+(some Linux distributions patch it, so no prebuilt binary matches). The
+fallback compile can then also fail when npm's bundled node-gyp crashes under
+the active Python — e.g. `PackageNotFoundError: No package metadata was found
+for gyp` when running under Anaconda. Fix both at once:
 
 ```bash
 npm install --ignore-scripts
 npm run rebuild:native
 ```
 
-The fallback compiles better-sqlite3 from source against your local Node
-headers (requires `make`, a C++ compiler and Python 3).
+`rebuild:native` fetches `node-gyp@10` via npx (independent of the broken
+system one), compiles better-sqlite3 against the local Node headers and
+verifies the binding actually loads. It requires `make`, a C++ compiler and
+Python 3. If a prebuilt binary matches your Node.js, a plain `npm install`
+works and none of this is needed.
